@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marvel Champions Solo - Spider-Man vs Rhino</title>
+<style>
+body { font-family: sans-serif; background: #111; color: #fff; margin:0; padding:0; display:flex; flex-direction:column; align-items:center; }
+h1 { margin:10px; }
+#game { display:flex; flex-direction:column; align-items:center; width:100%; max-width:600px; }
+#villain, #hand, #deckInfo, #schemes, #minions { margin:10px; padding:10px; border:1px solid #fff; border-radius:8px; width:90%; text-align:center; }
+button { margin:5px; padding:8px 12px; border:none; border-radius:4px; background:#f04; color:#fff; font-weight:bold; }
+img.card { width:80px; margin:2px; border-radius:4px; }
+.flex { display:flex; justify-content:center; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+<h1>Marvel Champions Solo</h1>
+<div id="game">
+  <div id="villain">
+    <h2>Villain: Rhino</h2>
+    <img id="villainCard" src="" alt="Villain Card" style="width:150px;"><br>
+    HP: <span id="villainHP">45</span> | Stage: <span id="villainStage">1</span><br>
+    <button onclick="advanceVillainStage()">Advance Stage</button>
+  </div>
+  <div id="deckInfo">
+    Deck Cards Left: <span id="deckCount">0</span>
+  </div>
+  <div id="hand">
+    <h3>Spider-Man Hand</h3>
+    <div class="flex" id="handCards"></div>
+    <button onclick="drawCard()">Draw Card</button>
+  </div>
+  <div id="schemes">
+    <h3>Main Scheme: <span id="mainScheme">Bank Heist</span></h3>
+    <h4>Side Schemes: <span id="sideSchemes">None</span></h4>
+  </div>
+  <div id="minions">
+    Minions in Play: <span id="minionsCount">0</span>
+    <button onclick="spawnMinion()">Spawn Minion</button>
+  </div>
+</div>
+
+<script>
+// --- Spider-Man Deck ---
+let heroDeck = [
+  {name:"Web Sling", image:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQC..."},
+  {name:"Spider Sense", image:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQC..."},
+  {name:"Wall Crawl", image:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQC..."},
+  {name:"Quick Reflexes", image:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQC..."},
+  {name:"Friendly Neighborhood", image:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQC..."}
+  // Add all Spider-Man hero cards with embedded base64 images
+];
+
+let heroHand = [];
+let deckCountEl = document.getElementById('deckCount');
+let handCardsEl = document.getElementById('handCards');
+
+// --- Villain ---
+let villain = {
+  name: "Rhino",
+  hp: 45,
+  stage: 1,
+  minions: 0
+};
+let villainHP = document.getElementById('villainHP');
+let villainStage = document.getElementById('villainStage');
+let minionsCount = document.getElementById('minionsCount');
+let villainCardImg = document.getElementById('villainCard');
+villainCardImg.src = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJYAAACWCAYAAAB5fY51..."; // Rhino card embedded base64
+
+// --- Game Functions ---
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+
+function drawCard() {
+  if (heroDeck.length === 0) return alert("Deck is empty!");
+  let card = heroDeck.pop();
+  heroHand.push(card);
+  renderHand();
+}
+
+function renderHand() {
+  handCardsEl.innerHTML = "";
+  heroHand.forEach(c => {
+    let img = document.createElement("img");
+    img.src = c.image;
+    img.alt = c.name;
+    img.className = "card";
+    handCardsEl.appendChild(img);
+  });
+  deckCountEl.innerText = heroDeck.length;
+}
+
+function advanceVillainStage() {
+  villain.stage++;
+  villainStage.innerText = villain.stage;
+}
+
+function spawnMinion() {
+  villain.minions++;
+  minionsCount.innerText = villain.minions;
+}
+
+// --- Init ---
+shuffle(heroDeck);
+deckCountEl.innerText = heroDeck.length;
+renderHand();
+</script>
+</body>
+</html>
