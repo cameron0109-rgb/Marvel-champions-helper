@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MC Solo — iPhone Friendly</title>
+<style>
+  html,body{height:100%;margin:0;background:#071018;color:#e9f6f6;font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:14px;background:linear-gradient(90deg,#08202a,#0b2a34);display:flex;align-items:center;gap:10px;}
+  header h1{font-size:16px;margin:0;}
+  main{padding:12px;display:flex;flex-direction:column;gap:12px}
+  .card{background:#07202a;padding:12px;border-radius:12px;border:1px solid #12333b;box-shadow:0 6px 18px rgba(0,0,0,0.6);}
+  label{font-size:13px;display:block;margin-bottom:6px;color:#9fd9d9}
+  select,input,button{font-size:16px;padding:10px;border-radius:10px;border:1px solid #15484d;background:#042127;color:#dff;}
+  button{background:#0aa; color:#012; font-weight:600;}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  .bigbtn{flex:1;padding:14px;border-radius:12px;background:#06c;color:white;font-weight:700;border:none}
+  .log{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;background:#00171a;padding:10px;border-radius:8px;height:160px;overflow:auto;font-size:13px}
+  img.cardimg{max-width:100%;border-radius:8px;margin-top:10px;border:1px solid #123;}
+  .center{display:flex;gap:8px;align-items:center;justify-content:center}
+  .thumb{width:48px;height:48px;border-radius:8px;background:#022;padding:6px;display:flex;align-items:center;justify-content:center}
+  .muted{opacity:0.7;font-size:13px}
+  .small{font-size:13px}
+  @media (min-width:720px){ main{max-width:980px;margin:0 auto} }
+</style>
+</head>
+<body>
+<header>
+  <div class="thumb">MC</div>
+  <h1>MC Solo — iPhone Safari Friendly</h1>
+</header>
+<main>
+  <section class="card">
+    <div class="small muted">Hero deck</div>
+    <div class="row" style="margin-top:8px">
+      <select id="heroExample" aria-label="Example hero">
+        <option value="">Choose example hero...</option>
+        <option value="spider">Spider-Man (example)</option>
+        <option value="iron">Iron Man (example)</option>
+        <option value="marvel">Captain Marvel (example)</option>
+      </select>
+      <input id="deckId" type="text" placeholder="Or paste MarvelCDB decklist ID (e.g. 44044)" style="flex:1;">
+      <button id="loadDeck">Load Hero</button>
+    </div>
+    <div class="muted small" style="margin-top:8px">Tip: for full card text & images the app fetches live from marvelcdb.com.</div>
+  </section>
+
+  <section class="card">
+    <div class="small muted">Villain</div>
+    <div class="row" style="margin-top:8px">
+      <select id="villainSel" style="flex:1">
+        <option value="rhino">Rhino</option>
+        <option value="klaw">Klaw</option>
+        <option value="ultron">Ultron</option>
+      </select>
+      <select id="difficulty">
+        <option value="normal">Normal (I+II)</option>
+        <option value="expert">Expert (II+III)</option>
+      </select>
+      <select id="modular">
+        <option value="standard">Standard</option>
+        <option value="modular">Modular</option>
+      </select>
+      <button id="loadVillain">Load Villain</button>
+    </div>
+    <div id="villainInfo" class="muted small" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <button id="readyDraw" class="bigbtn">Ready & Draw</button>
+      <button id="villainPhase" class="bigbtn" style="background:#f25">Villain Phase</button>
+    </div>
+    <div style="margin-top:10px" class="row">
+      <div style="flex:1">
+        <div class="muted small">Villain HP</div>
+        <div class="row"><input id="vHP" type="number" value="20" style="width:120px"><button id="vHpMinus">-</button><button id="vHpPlus">+</button></div>
+      </div>
+      <div style="flex:1">
+        <div class="muted small">Main scheme threat</div>
+        <div class="row"><input id="threat" type="number" value="0" style="width:120px"><button id="threatPlus">+1</button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" id="cardPanel">
+    <div class="small muted">Last encounter card</div>
+    <div id="cardDisplay" class="small" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <div class="muted small">Log</div>
+    <div id="log" class="log"></div>
+  </section>
+
+  <section class="card">
+    <div class="muted small">Notes & Instructions</div>
+    <div class="small muted" style="margin-top:8px">
+      <ul>
+        <li>The app fetches data from <strong>https://marvelcdb.com</strong>. If you open the file using <code>file://</code> the browser may block requests. Best results: host the file on a simple static URL (GitHub Gist/Pages, Netlify, or a tiny local server) and open in Safari.</li>
+        <li>To run a local server on a computer: <code>python -m http.server 8000</code> then open <code>http://localhost:8000/index.html</code> on your phone (same Wi‑Fi).</li>
+        <li>If a card image fails to load, the app will still show the card text when available.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<script>
+/* Mobile-first MarvelCDB viewer + basic villain automation.
+   Uses MarvelCDB public API:
+   - /api/public/decklist/{id}.json to get decklist (hero decks)
+   - /api/public/card/{card_code}.json to fetch card text + image
+   - For villain presets, we map to sets of encounter card codes (generic)
+   Note: CORS applies. If running from file:// you WILL see errors fetching API.
+*/
+
+const logEl = document.getElementById('log');
+function log(msg, cls){ const d=new Date().toLocaleTimeString(); logEl.innerHTML += `<div>[${d}] ${msg}</div>`; logEl.scrollTop = logEl.scrollHeight; }
+
+// Simple state
+const state = {
+  hero: {name:'—', deck:[], hand:[], discard:[], handSize:5},
+  villain: {name:'—', deck:[], discard:[], stages:[], stageIndex:0, hp:0, hpMax:0, attack:0, scheme:0}
+};
+
+// Some example mappings of encounter card codes for the villains (these are illustrative; real codes vary)
+// For a proper game we fetch by pack code or use pack lists; here we include a small sample of codes likely to exist.
+// NOTE: If a code doesn't exist the API call will fail — that's ok; the app will show errors.
+const VILLAIN_CODE_PRESETS = {
+  rhino: {
+    normal_standard: { name:'Rhino (Std)', stages:[{hp:14,attack:2,scheme:1},{hp:16,attack:3,scheme:2}], encounterCodes: ['27174a','27175a','27176a','27177a','27178a'] },
+    rhino_normal_modular: { name:'Rhino (Mod)', stages:[{hp:14,attack:2,scheme:1},{hp:16,attack:3,scheme:2}], encounterCodes: ['27174a','27175a','27180a','27181a','27182a'] },
+    expert_standard: { name:'Rhino (Exp)', stages:[{hp:16,attack:3,scheme:2},{hp:18,attack:3,scheme:3}], encounterCodes: ['27174a','27175a','27176a','27185a','27186a'] }
+  },
+  klaw: {
+    normal_standard: { name:'Klaw (Std)', stages:[{hp:12,attack:1,scheme:2},{hp:16,attack:2,scheme:2}], encounterCodes: ['17401a','17402a','17403a','17404a'] },
+    normal_modular: { name:'Klaw (Mod)', stages:[{hp:12,attack:1,scheme:2},{hp:16,attack:2,scheme:2}], encounterCodes: ['17401a','17405a','17406a','17407a'] },
+    expert_standard: { name:'Klaw (Exp)', stages:[{hp:16,attack:2,scheme:2},{hp:18,attack:3,scheme:3}], encounterCodes: ['17401a','17402a','17408a','17409a'] }
+  },
+  ultron: {
+    normal_standard: { name:'Ultron (Std)', stages:[{hp:14,attack:2,scheme:1},{hp:17,attack:2,scheme:2}], encounterCodes: ['23001a','23002a','23003a','23004a'] },
+    normal_modular: { name:'Ultron (Mod)', stages:[{hp:14,attack:2,scheme:1},{hp:17,attack:2,scheme:2}], encounterCodes: ['23001a','23005a','23006a','23007a'] },
+    expert_standard: { name:'Ultron (Exp)', stages:[{hp:17,attack:2,scheme:2},{hp:20,attack:3,scheme:3}], encounterCodes: ['23001a','23008a','23009a','23010a'] }
+  }
+};
+
+// Pick DOM
+const deckIdInput = document.getElementById('deckId');
+const loadDeckBtn = document.getElementById('loadDeck');
+const heroExample = document.getElementById('heroExample');
+const loadVillainBtn = document.getElementById('loadVillain');
+const villainSel = document.getElementById('villainSel');
+const difficultySel = document.getElementById('difficulty');
+const modularSel = document.getElementById('modular');
+const cardDisplay = document.getElementById('cardDisplay');
+const villainInfo = document.getElementById('villainInfo');
+const vHP = document.getElementById('vHP');
+const threat = document.getElementById('threat');
+const readyDrawBtn = document.getElementById('readyDraw');
+const villainPhaseBtn = document.getElementById('villainPhase');
+
+// Helper: fetch decklist JSON from MarvelCDB
+async function fetchDecklist(id){
+  const url = `https://marvelcdb.com/api/public/decklist/${id}.json`;
+  log(`Fetching decklist ${id}...`);
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Decklist fetch failed: ' + res.status);
+  return await res.json();
+}
+
+// Helper: fetch single card JSON by code
+async function fetchCard(code){
+  // code might be like '27174a' or numeric; API expects card_code like '27174a'
+  const url = `https://marvelcdb.com/api/public/card/${encodeURIComponent(code)}.json`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Card fetch failed: ' + res.status + ' for ' + code);
+  return await res.json();
+}
+
+// Determine probable card codes from decklist object (robust handling of various schemas)
+function expandDecklistToCodes(deckJson){
+  const codes = [];
+  if(Array.isArray(deckJson.cards)){
+    // each entry may be object with code or name and quantity or full card objects
+    deckJson.cards.forEach(c => {
+      if(typeof c === 'string') codes.push(c);
+      else if(c.code) { // common field
+        const qty = c.quantity || c.qty || c.count || 1;
+        for(let i=0;i<qty;i++) codes.push(c.code);
+      } else if(c.card_id) { const qty = c.quantity||1; for(let i=0;i<qty;i++) codes.push(c.card_id); }
+      else if(c.name && c.real_name){ codes.push(c.name); } // fallback
+    });
+  } else if(deckJson.slots && Array.isArray(deckJson.cards)){
+    // older schema: cards array + slots map
+    const map = {};
+    deckJson.cards.forEach(c => map[c.code] = c.real_name || c.name || c.code);
+    for(const code in deckJson.slots){ const qty = deckJson.slots[code]; for(let i=0;i<qty;i++) codes.push(code); }
+  } else if(deckJson.cards && typeof deckJson.cards === 'object'){
+    for(const code in deckJson.cards){ const qty = deckJson.cards[code] || 1; for(let i=0;i<qty;i++) codes.push(code); }
+  }
+  return codes;
+}
+
+// Load example heroes (simple names only; we won't fetch card images for examples)
+const HERO_EXAMPLES = {
+  spider: {name:'Spider-Man (Example)', handSize:5, deck:['Web Swing','Web Swing','Agility','Counter-Punch','Resource']},
+  iron: {name:'Iron Man (Example)', handSize:6, deck:['Arc Reactor','Repulsor Blast','Tech Upgrade','Resource','Defense Protocol']},
+  marvel: {name:'Captain Marvel (Example)', handSize:6, deck:['Photon Blast','Cosmic Flight','Energy Absorption','Evade','Resource']}
+};
+
+// UI actions
+loadDeckBtn.addEventListener('click', async ()=>{
+  const id = deckIdInput.value.trim();
+  const example = heroExample.value;
+  if(example){ // load example
+    state.hero.name = HERO_EXAMPLES[example].name;
+    state.hero.deck = HERO_EXAMPLES[example].deck.slice();
+    state.hero.handSize = HERO_EXAMPLES[example].handSize;
+    log(`Loaded example hero: ${state.hero.name}`);
+    return;
+  }
+  if(!id){ log('Enter decklist ID or choose example'); return; }
+  try{
+    const dl = await fetchDecklist(id);
+    // Expand codes and fetch card details for first N unique codes (throttle to avoid many requests)
+    const codes = expandDecklistToCodes(dl);
+    state.hero.deck = []; state.hero.hand = []; state.hero.discard = [];
+    // For each code, try to fetch card JSON to display name & image if possible; if fetch fails, fallback to name.
+    for(let i=0;i<codes.length;i++){
+      const code = codes[i];
+      try{
+        const card = await fetchCard(code);
+        state.hero.deck.push({code:code, title: card.real_name || card.name || code, text: card.flavor || card.text || '', image: card.imagesrc || card.image_url || card.image || card.imagesrc_full || (card.pack_code?`https://marvelcdb.com/bundles/cards/${card.code}.png`:null)});
+      }catch(err){
+        // fallback: push code as title
+        state.hero.deck.push({code:code, title: String(code), text:'', image:null});
+      }
+    }
+    state.hero.name = dl.title || dl.name || ('Imported '+id);
+    log(`Imported hero deck ${state.hero.name} (${state.hero.deck.length} cards).`);
+  }catch(err){
+    log('Import failed: ' + err.message);
+  }
+});
+
+loadVillainBtn.addEventListener('click', async ()=>{
+  const who = villainSel.value;
+  const diff = difficultySel.value;
+  const mod = modularSel.value;
+  const presetKey = `${diff}_${mod}`; // we used different keys; try some fallbacks
+  // pick mapping from VILLAIN_CODE_PRESETS: try keys in order
+  let p = VILLAIN_CODE_PRESETS[who][`${diff}_standard`] || VILLAIN_CODE_PRESETS[who][`${diff}_modular`] || VILLAIN_CODE_PRESETS[who][`expert_standard`] || VILLAIN_CODE_PRESETS[who][Object.keys(VILLAIN_CODE_PRESETS[who])[0]];
+  if(!p){ log('Villain preset mapping missing'); return; }
+  // set villain stages & HP
+  state.villain.name = p.name; state.villain.stages = p.stages.slice(); state.villain.stageIndex = 0;
+  state.villain.hpMax = p.stages[0].hp; state.villain.hp = p.stages[0].hp; state.villain.attack = p.stages[0].attack; state.villain.scheme = p.stages[0].scheme;
+  // Build encounter deck by fetching each code
+  state.villain.deck = []; state.villain.discard = [];
+  log(`Loading villain ${p.name} — fetching ${p.encounterCodes.length} encounter cards...`);
+  for(let code of p.encounterCodes){
+    try{
+      const card = await fetchCard(code);
+      state.villain.deck.push({code:code, title:card.real_name || card.name || code, text:card.text || card.flavor || '', image: card.imagesrc || card.image_url || card.image || (card.pack_code?`https://marvelcdb.com/bundles/cards/${card.code}.png`:null), type:card.card_type_name || card.type || 'encounter'});
+    }catch(err){
+      // fallback to simple entry
+      state.villain.deck.push({code:code, title:code, text:'', image:null, type:'encounter'});
+      log('One encounter card failed to fetch: ' + code);
+    }
+  }
+  shuffleArray(state.villain.deck);
+  villainInfo.innerText = `${state.villain.name} — Stage 1 HP ${state.villain.hp}/${state.villain.hpMax}`;
+  document.getElementById('vHP').value = state.villain.hp;
+  log(`Villain ${state.villain.name} ready. Encounter deck size: ${state.villain.deck.length}`);
+});
+
+readyDrawBtn.addEventListener('click', ()=>{
+  // simple draw to hand size (if hero deck items are objects with title)
+  const target = state.hero.handSize || 5;
+  while(state.hero.hand.length < target && state.hero.deck.length>0){
+    const c = state.hero.deck.shift();
+    state.hero.hand.push(c);
+  }
+  log(`Drew up to hand size (${state.hero.hand.length}).`);
+});
+
+villainPhaseBtn.addEventListener('click', async ()=>{
+  log('Villain phase starting...');
+  // 1) main scheme adds threat
+  const base = 1;
+  const add = base; // future: acceleration
+  const current = parseInt(document.getElementById('threat').value||'0',10);
+  document.getElementById('threat').value = current + add;
+  log(`Main scheme +${add} threat.`);
+  // 2) attack or scheme depending on hero form (we assume hero in hero form)
+  // flip boost by drawing encounter top (but we'll reveal full card)
+  const boostCard = drawVillainEncounter();
+  if(boostCard){
+    displayCard(boostCard);
+    log(`Encounter revealed: ${boostCard.title}`);
+    // If it's a minion, auto-add to minions? (not implemented fully)
+  } else {
+    log('No encounter card to reveal.');
+  }
+  // 3) apply attack or scheme numerically (we'll log)
+  log(`Villain attacks for ${state.villain.attack} (apply defense manually).`);
+});
+
+function drawVillainEncounter(){
+  if(!state.villain.deck || state.villain.deck.length===0){ // reshuffle discard
+    if(state.villain.discard && state.villain.discard.length>0){ state.villain.deck = state.villain.discard.splice(0); shuffleArray(state.villain.deck); log('Encounter reshuffled.'); }
+    else { log('Encounter deck empty.'); return null; }
+  }
+  const c = state.villain.deck.shift();
+  state.villain.discard.push(c);
+  return c;
+}
+
+function displayCard(card){
+  cardDisplay.innerHTML = '';
+  const img = document.createElement('img');
+  img.className = 'cardimg';
+  if(card.image){
+    img.src = card.image;
+    img.alt = card.title;
+    img.onerror = ()=>{ img.style.display='none'; };
+    cardDisplay.appendChild(img);
+  }
+  const title = document.createElement('div'); title.innerHTML = `<strong>${card.title}</strong>`;
+  const text = document.createElement('div'); text.className='muted small'; text.style.marginTop='6px'; text.innerText = card.text || '';
+  cardDisplay.appendChild(title); cardDisplay.appendChild(text);
+}
+
+// small RNG shuffle
+function shuffleArray(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+// small helpers to manipulate HP/threat
+document.getElementById('vHpMinus').addEventListener('click', ()=>{ state.villain.hp = Math.max(0, parseInt(document.getElementById('vHP').value||0,10)-1); document.getElementById('vHP').value = state.villain.hp; log('Villain HP -1'); });
+document.getElementById('vHpPlus').addEventListener('click', ()=>{ state.villain.hp = parseInt(document.getElementById('vHP').value||0,10)+1; document.getElementById('vHP').value = state.villain.hp; log('Villain HP +1'); });
+document.getElementById('threatPlus').addEventListener('click', ()=>{ document.getElementById('threat').value = parseInt(document.getElementById('threat').value||0,10)+1; log('Threat +1'); });
+
+// small: let user tap an example hero
+heroExample.addEventListener('change', ()=>{
+  if(heroExample.value){ state.hero.name = HERO_EXAMPLES[heroExample.value].name; state.hero.deck = HERO_EXAMPLES[heroExample.value].deck.slice(); state.hero.handSize = HERO_EXAMPLES[heroExample.value].handSize; log('Example hero loaded: '+state.hero.name); }
+});
+
+// Startup note
+log('App ready. For card text/images, open via https (serve the file) or allow CORS in browser.');
+
+</script>
+</body>
+</html>
