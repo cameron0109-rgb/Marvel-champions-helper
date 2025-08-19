@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marvel Champions LCG - Test App</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #1c1c1c;
+      color: white;
+      text-align: center;
+    }
+    header {
+      background: #111;
+      padding: 10px;
+      font-size: 1.2em;
+    }
+    .game-board {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px;
+    }
+    .zone {
+      border: 2px solid #555;
+      border-radius: 10px;
+      margin: 10px;
+      padding: 10px;
+      width: 90%;
+      max-width: 800px;
+      background: #2a2a2a;
+    }
+    .zone h2 {
+      margin: 0 0 10px 0;
+    }
+    .cards {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .card {
+      width: 120px;
+      height: 180px;
+      background: #eee;
+      color: #000;
+      margin: 5px;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 5px;
+      position: relative;
+    }
+    .card img {
+      width: 100%;
+      height: 100px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+    .card button {
+      font-size: 0.7em;
+      padding: 3px;
+      margin-top: 2px;
+    }
+    .btn {
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      padding: 10px 15px;
+      margin: 5px;
+      font-size: 1em;
+    }
+    .btn:disabled {
+      background: #555;
+    }
+    .health-bar, .threat-bar {
+      background: #444;
+      border-radius: 5px;
+      overflow: hidden;
+      margin: 5px 0;
+    }
+    .health, .threat {
+      height: 20px;
+      line-height: 20px;
+      text-align: center;
+      color: black;
+    }
+    .health { background: #e74c3c; }
+    .threat { background: #f1c40f; }
+  </style>
+</head>
+<body>
+  <header>Marvel Champions LCG - Test App</header>
+  <div class="game-board">
+    
+    <!-- Villain Zone -->
+    <div class="zone" id="villain-zone">
+      <h2>Villain: Rhino</h2>
+      <div class="health-bar"><div class="health" id="villain-health" style="width:100%">HP: 14</div></div>
+      <p>Stage: 1</p>
+      <button class="btn" onclick="villainAttack()">Villain Attack</button>
+      <button class="btn" onclick="villainScheme()">Villain Scheme</button>
+      <h3>Main Scheme</h3>
+      <div class="threat-bar"><div class="threat" id="scheme-threat" style="width:0%">Threat: 0/7</div></div>
+      <div id="minions"><h4>Minions</h4></div>
+    </div>
+    
+    <!-- Hero Zone -->
+    <div class="zone" id="hero-zone">
+      <h2>Hero: Spider-Man</h2>
+      <div class="health-bar"><div class="health" id="hero-health" style="width:100%">HP: 10</div></div>
+      <p id="hero-form">Form: Hero</p>
+      <button class="btn" onclick="toggleForm()">Toggle Hero/Alter-Ego</button>
+      <button class="btn" onclick="heroAttack()">Attack</button>
+      <button class="btn" onclick="heroThwart()">Thwart</button>
+      <button class="btn" onclick="endTurn()">End Turn</button>
+      <h3>Hand (<span id="hand-size">0</span>)</h3>
+      <div class="cards" id="hero-hand"></div>
+    </div>
+  </div>
+
+  <script>
+    // Basic state
+    let heroHP = 10;
+    let heroForm = "Hero";
+    let villainHP = 14;
+    let schemeThreat = 0;
+    const schemeMax = 7;
+    let heroHand = [];
+    let heroDeck = [];
+    let discardPile = [];
+
+    function init() {
+      // Tiny sample Spider-Man deck
+      heroDeck = [
+        {name: "Punch", cost: 1, type: "Attack"},
+        {name: "Web Shooter", cost: 2, type: "Upgrade"},
+        {name: "Swinging Web Kick", cost: 3, type: "Attack"},
+        {name: "Backflip", cost: 0, type: "Defense"},
+        {name: "Aunt May", cost: 2, type: "Support"},
+        {name: "Enhanced Reflexes", cost: 1, type: "Resource"}
+      ];
+      drawCards(5);
+    }
+
+    function drawCards(n) {
+      for (let i = 0; i < n; i++) {
+        if (heroDeck.length === 0) {
+          heroDeck = discardPile;
+          discardPile = [];
+        }
+        let card = heroDeck.shift();
+        if (card) heroHand.push(card);
+      }
+      renderHand();
+    }
+
+    function renderHand() {
+      const handDiv = document.getElementById("hero-hand");
+      handDiv.innerHTML = "";
+      heroHand.forEach((card, i) => {
+        let div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <img src="https://picsum.photos/120/100?random=${i}" alt="card art">
+          <strong>${card.name}</strong><br>
+          Cost: ${card.cost}<br>
+          <button onclick="discardCard(${i})">Discard</button>`;
+        handDiv.appendChild(div);
+      });
+      document.getElementById("hand-size").innerText = heroHand.length;
+    }
+
+    function discardCard(i) {
+      let card = heroHand.splice(i, 1)[0];
+      discardPile.push(card);
+      renderHand();
+    }
+
+    function toggleForm() {
+      heroForm = (heroForm === "Hero") ? "Alter-Ego" : "Hero";
+      document.getElementById("hero-form").innerText = "Form: " + heroForm;
+    }
+
+    function heroAttack() {
+      if (heroForm !== "Hero") return alert("Must be in Hero form!");
+      villainHP -= 2;
+      if (villainHP < 0) villainHP = 0;
+      document.getElementById("villain-health").style.width = (villainHP/14*100)+"%";
+      document.getElementById("villain-health").innerText = "HP: " + villainHP;
+    }
+
+    function heroThwart() {
+      if (heroForm !== "Hero") return alert("Must be in Hero form!");
+      schemeThreat -= 2;
+      if (schemeThreat < 0) schemeThreat = 0;
+      document.getElementById("scheme-threat").style.width = (schemeThreat/schemeMax*100)+"%";
+      document.getElementById("scheme-threat").innerText = "Threat: " + schemeThreat + "/" + schemeMax;
+    }
+
+    function villainAttack() {
+      heroHP -= 2;
+      if (heroHP < 0) heroHP = 0;
+      document.getElementById("hero-health").style.width = (heroHP/10*100)+"%";
+      document.getElementById("hero-health").innerText = "HP: " + heroHP;
+    }
+
+    function villainScheme() {
+      schemeThreat += 1;
+      if (schemeThreat > schemeMax) schemeThreat = schemeMax;
+      document.getElementById("scheme-threat").style.width = (schemeThreat/schemeMax*100)+"%";
+      document.getElementById("scheme-threat").innerText = "Threat: " + schemeThreat + "/" + schemeMax;
+    }
+
+    function endTurn() {
+      // Villain auto schemes or attacks depending on form
+      if (heroForm === "Hero") villainAttack();
+      else villainScheme();
+      drawCards(1);
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
