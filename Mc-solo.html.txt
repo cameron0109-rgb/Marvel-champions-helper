@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>MC Solo — Rhino (Standard + Bomb Scare)</title>
+<style>
+/* Mobile-first styles (iPhone friendly) */
+html,body{margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#071018;color:#e6fbfa;height:100%}
+header{padding:12px;background:linear-gradient(90deg,#08202a,#0b2a34);display:flex;align-items:center;gap:10px}
+h1{font-size:16px;margin:0}
+main{padding:10px;display:flex;flex-direction:column;gap:10px}
+.card{background:#07202a;padding:10px;border-radius:12px;border:1px solid #12333b;box-shadow:0 6px 12px rgba(0,0,0,0.5)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,input,button{font-size:16px;padding:10px;border-radius:10px;border:1px solid #15484d;background:#042127;color:#dff}
+button{background:#0aa;color:#012;font-weight:700}
+.bigbtn{flex:1;padding:12px;border-radius:12px;background:#06c;color:white;font-weight:700;border:none}
+.small{font-size:13px}
+.muted{opacity:0.75;font-size:13px}
+.log{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace;background:#00171a;padding:8px;border-radius:8px;height:140px;overflow:auto;font-size:13px}
+.scroll-horizontal{display:flex;overflow-x:auto;gap:8px;padding-bottom:6px}
+.card-thumb{flex:0 0 120px;background:#041e23;padding:6px;border-radius:8px;border:1px solid #123}
+.card-thumb img{width:100%;height:auto;border-radius:6px;display:block}
+.counter{font-weight:700;padding:6px 10px;border-radius:8px;background:#052a2f;border:1px solid #0a6972}
+.notice{font-size:12px;color:#9fd9d9}
+@media (min-width:720px){ main{max-width:980px;margin:0 auto} }
+</style>
+</head>
+<body>
+<header>
+  <div style="width:44px;height:44px;border-radius:8px;background:#022;color:#9ff;display:flex;align-items:center;justify-content:center;font-weight:800">MC</div>
+  <h1>MC Solo — Rhino (Standard + Bomb Scare)</h1>
+</header>
+
+<main>
+  <!-- Setup -->
+  <section class="card">
+    <div class="row">
+      <div style="flex:1">
+        <div class="small muted">Hero (prebuilt)</div>
+        <select id="heroPreset" style="width:100%">
+          <option value="">Choose hero (prebuilt)</option>
+          <option value="spider">Spider-Man (Core)</option>
+          <option value="iron">Iron Man (Core)</option>
+          <option value="marvel">Captain Marvel (Core)</option>
+        </select>
+      </div>
+
+      <div style="width:140px">
+        <div class="small muted">Import Hero ID</div>
+        <input id="importHeroId" placeholder="MarvelCDB decklist ID" style="width:100%"/>
+      </div>
+      <div style="width:120px">
+        <div class="small muted">&nbsp;</div>
+        <button id="importHeroBtn">Import</button>
+      </div>
+    </div>
+
+    <div style="margin-top:8px" class="muted">
+      Villain: <strong>Rhino</strong> — Presets: <span class="counter" id="villainDeckCount">0</span> cards
+      &nbsp; · Difficulty:
+      <select id="difficulty" style="width:120px">
+        <option value="normal">Normal (I+II)</option>
+        <option value="expert">Expert (II+III)</option>
+      </select>
+      &nbsp; · Modular:
+      <select id="modular" style="width:160px">
+        <option value="none">None</option>
+        <option value="bomb_scare">Bomb Scare</option>
+      </select>
+      <button id="buildVillain" style="margin-left:8px">Build Villain Deck</button>
+    </div>
+
+    <div style="margin-top:8px" class="notice">
+      Notes: This build fetches encounter cards & images from MarvelCDB (https://marvelcdb.com). For best results, host this file on HTTPS (GitHub Pages / Netlify). If fetch fails due to CORS, the app will fall back to a small sample deck so you can test UI.
+    </div>
+  </section>
+
+  <!-- Play area -->
+  <section class="card">
+    <div class="row" style="align-items:flex-start">
+      <div style="flex:1;min-width:220px">
+        <div class="small muted">Hero hand</div>
+        <div class="muted small">Deck left: <span id="heroDeckLeft">0</span></div>
+        <div class="scroll-horizontal" id="heroHand"></div>
+      </div>
+
+      <div style="width:320px">
+        <div class="small muted">Villain status</div>
+        <div id="villainInfo" class="muted small"></div>
+        <div id="villainCard" style="margin-top:6px"></div>
+        <div style="margin-top:8px" class="row">
+          <div class="small muted">Minions</div>
+          <button id="minionDec">-</button><div class="counter" id="minionCount">0</div><button id="minionInc">+</button>
+        </div>
+        <div style="margin-top:6px" class="row">
+          <div class="small muted">Main Scheme</div>
+          <button id="schemeDec">-</button><div class="counter" id="mainScheme">0</div><button id="schemeInc">+</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:8px" class="small muted">Side Schemes</div>
+    <div id="sideSchemes" class="row" style="margin-top:6px"></div>
+    <div style="margin-top:8px" class="row">
+      <button id="addSide" class="bigbtn" style="flex:0 0 120px">+ Side</button>
+      <button id="readyDraw" class="bigbtn">Ready & Draw (auto redraw)</button>
+      <button id="villainPhase" class="bigbtn" style="background:#f25">Villain Phase</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="muted small">Log</div>
+    <div id="log" class="log"></div>
+  </section>
+</main>
+
+<script>
+/* MC Solo — Rhino full build (Standard + Bomb Scare)
+   Behavior:
+   - Build full villain deck by fetching MarvelCDB find pages:
+     * m:rhino (villain encounter set)
+     * m:standard (standard encounter set)
+     * m:bomb_scare (modular)
+   - Parse card links from returned HTML, extract card codes (card/XXXXX or /card/{code})
+   - Fetch each card JSON via https://marvelcdb.com/api/public/card/{code}.json to get title/text/imagesrc
+   - Show deck count; draw reveals encounter cards with image+text
+   - Hero deck: prebuilt small starter set (but Import button allows pulling a decklist ID from MarvelCDB)
+   Notes: MarvelCDB CORS may block some requests; if so you'll see an error in the log and the app uses a small fallback deck.
+*/
+
+// --- Utilities & state ---
+const logEl = document.getElementById('log');
+function log(msg){ const t = new Date().toLocaleTimeString(); logEl.innerHTML += `<div>[${t}] ${msg}</div>`; logEl.scrollTop = logEl.scrollHeight; }
+
+const state = {
+  hero: {name:'', deck:[], hand:[], handSize:6},
+  villain: {name:'Rhino', deck:[], discard:[], stages:[], stageIndex:0, hp:0, hpMax:0, attack:0, scheme:0},
+  minions:0,
+  mainScheme:0,
+  sideSchemes: []
+};
+
+// DOM
+const heroPreset = document.getElementById('heroPreset');
+const importHeroId = document.getElementById('importHeroId');
+const importHeroBtn = document.getElementById('importHeroBtn');
+const buildVillainBtn = document.getElementById('buildVillain');
+const villainDeckCountEl = document.getElementById('villainDeckCount');
+const villainInfoEl = document.getElementById('villainInfo');
+const villainCardEl = document.getElementById('villainCard');
+const heroHandEl = document.getElementById('heroHand');
+const heroDeckLeftEl = document.getElementById('heroDeckLeft');
+const readyDrawBtn = document.getElementById('readyDraw');
+const villainPhaseBtn = document.getElementById('villainPhase');
+const addSideBtn = document.getElementById('addSide');
+const sideSchemesEl = document.getElementById('sideSchemes');
+const minionCountEl = document.getElementById('minionCount');
+const minionInc = document.getElementById('minionInc');
+const minionDec = document.getElementById('minionDec');
+const schemeInc = document.getElementById('schemeInc');
+const schemeDec = document.getElementById('schemeDec');
+const mainSchemeEl = document.getElementById('mainScheme');
+
+// --- Prebuilt hero small sets (we will validate/offer import) ---
+const PREBUILT_HEROES = {
+  spider: {name:'Spider-Man (core sample)', handSize:5, deck:[
+    {title:'Web Swing', text:'Deal 2 damage to 1 enemy.', image:'https://marvelcdb.com/bundles/cards/01001.png'},
+    {title:'Agility', text:'Draw 1 card.', image:'https://marvelcdb.com/bundles/cards/01002.png'},
+    {title:'Counter-Punch', text:'Deal 1 damage back when attacked.', image:'https://marvelcdb.com/bundles/cards/01003.png'},
+    {title:'Web Shield', text:'Reduce damage by 2.', image:'https://marvelcdb.com/bundles/cards/01005.png'},
+    {title:'Resource', text:'Gain 1 resource.', image:'https://marvelcdb.com/bundles/cards/01004.png'},
+    {title:'Resource', text:'Gain 1 resource.', image:'https://marvelcdb.com/bundles/cards/01004.png'}
+  ]},
+  iron: {name:'Iron Man (core sample)', handSize:6, deck:[
+    {title:'Repulsor Blast', text:'Deal 3 damage.', image:'https://marvelcdb.com/bundles/cards/02001.png'},
+    {title:'Arc Reactor', text:'Gain 1 resource.', image:'https://marvelcdb.com/bundles/cards/02002.png'},
+    {title:'Tech Upgrade', text:'Upgrade a card.', image:'https://marvelcdb.com/bundles/cards/02003.png'},
+    {title:'Evade', text:'Avoid damage this turn.', image:'https://marvelcdb.com/bundles/cards/02004.png'},
+    {title:'Resource', text:'Gain 1 resource.', image:'https://marvelcdb.com/bundles/cards/02005.png'}
+  ]},
+  marvel: {name:'Captain Marvel (core sample)', handSize:6, deck:[
+    {title:'Photon Blast', text:'Deal 4 damage.', image:'https://marvelcdb.com/bundles/cards/03001.png'},
+    {title:'Cosmic Flight', text:'Evade and draw a card.', image:'https://marvelcdb.com/bundles/cards/03002.png'},
+    {title:'Energy Absorption', text:'Heal 2 damage.', image:'https://marvelcdb.com/bundles/cards/03003.png'},
+    {title:'Evade', text:'Avoid damage this turn.', image:'https://marvelcdb.com/bundles/cards/03004.png'},
+    {title:'Resource', text:'Gain 1 resource.', image:'https://marvelcdb.com/bundles/cards/03005.png'}
+  ]}
+};
+
+// --- MarvelCDB helper functions ---
+// Parse card codes from MarvelCDB "find" HTML (list view). Returns array of codes like '01094' or '27174a'
+function parseCardCodesFromFindHtml(htmlText){
+  const codes = [];
+  try{
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, 'text/html');
+    // find links that go to /card/{code}
+    const anchors = Array.from(doc.querySelectorAll('a[href*="/card/"]'));
+    anchors.forEach(a=>{
+      const href = a.getAttribute('href');
+      const m = href.match(/\/card\/([^\/?#]+)/);
+      if(m && m[1]) codes.push(m[1]);
+    });
+  }catch(e){
+    console.warn('parse error', e);
+  }
+  // dedupe while preserving order
+  return Array.from(new Set(codes));
+}
+
+// Fetch find page from MarvelCDB (encounter lists). Returns array of card codes.
+async function fetchFindCodes(query){
+  // query is already encoded like 'm:rhino' or 'm:bomb_scare' etc.
+  const url = `https://marvelcdb.com/find?decks=encounter&q=${encodeURIComponent(query)}&view=list`;
+  log(`Fetching find results for ${query}...`);
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Find fetch failed: ' + res.status);
+  const txt = await res.text();
+  return parseCardCodesFromFindHtml(txt);
+}
+
+// Fetch card JSON from MarvelCDB API by code
+async function fetchCardJson(code){
+  // API endpoint
+  const url = `https://marvelcdb.com/api/public/card/${encodeURIComponent(code)}.json`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error(`Card ${code} fetch failed: ` + res.status);
+  return await res.json();
+}
+
+// Build villain deck for Rhino (Standard + optional Bomb Scare)
+async function buildRhinoDeck(includeStandard=true, includeModular=false, difficulty='normal'){
+  try{
+    // 1) fetch m:rhino (villain-specific encounter set)
+    const codesVillain = await fetchFindCodes('m:rhino');
+    log(`Found ${codesVillain.length} villain-specific encounter codes (m:rhino).`);
+    // 2) fetch m:standard if requested
+    let codesStandard = [];
+    if(includeStandard){
+      codesStandard = await fetchFindCodes('m:standard');
+      log(`Found ${codesStandard.length} standard encounter codes (m:standard).`);
+    }
+    // 3) fetch modular if requested
+    let codesMod = [];
+    if(includeModular){
+      codesMod = await fetchFindCodes('m:bomb_scare');
+      log(`Found ${codesMod.length} modular (Bomb Scare) codes.`);
+    }
+    // 4) combine codes (order matters less; we'll shuffle later)
+    // For difficulty, Rhino uses certain stages (I+II normal, II+III expert) — we still include all encounter cards; difficulty affects villain stages only
+    const combined = [...codesVillain, ...codesStandard, ...codesMod];
+    if(combined.length === 0){
+      throw new Error('No encounter codes found from MarvelCDB; maybe cross-origin blocked.');
+    }
+    // 5) fetch each card JSON (throttle a little)
+    const deck = [];
+    for(let i=0;i<combined.length;i++){
+      const code = combined[i];
+      try{
+        const card = await fetchCardJson(code);
+        deck.push({
+          code,
+          title: card.real_name || card.name || code,
+          text: (card.text || card.flavor || '').replace(/\r?\n/g,' '),
+          image: card.imagesrc || card.image_url || (card.imagesrc_full?card.imagesrc_full:null) || (card.pack_code?`https://marvelcdb.com/bundles/cards/${card.code}.png`:null),
+          type: card.card_type_name || card.type || 'encounter'
+        });
+      }catch(err){
+        // push a fallback with code only
+        deck.push({code, title: code, text:'(card fetch failed)', image:null, type:'encounter'});
+      }
+    }
+    // shuffle deck
+    shuffle(deck);
+    // set villain state: stages depend on difficulty for Rhino
+    if(difficulty === 'normal'){
+      state.villain.stages = [{hp:14,attack:2,scheme:1},{hp:16,attack:3,scheme:2}];
+    } else {
+      state.villain.stages = [{hp:16,attack:3,scheme:2},{hp:18,attack:4,scheme:3}];
+    }
+    state.villain.stageIndex = 0;
+    state.villain.hp = state.villain.stages[0].hp;
+    state.villain.hpMax = state.villain.stages[0].hp;
+    state.villain.attack = state.villain.stages[0].attack;
+    state.villain.scheme = state.villain.stages[0].scheme;
+    state.villain.deck = deck;
+    state.villain.discard = [];
+    updateVillainUi();
+    log(`Villain deck built: ${deck.length} cards.`);
+    return deck.length;
+  }catch(err){
+    log('Error building Rhino deck: ' + err.message);
+    // fallback: use small sample deck so UI works
+    state.villain.deck = [
+      {code:'27174a', title:'Rampage', text:'Deal 2 damage.', image:'https://marvelcdb.com/bundles/cards/27174a.png'},
+      {code:'27175a', title:'Charge', text:'Gain +1 attack.', image:'https://marvelcdb.com/bundles/cards/27175a.png'},
+      {code:'27176a', title:'Stampede', text:'Treachery: ...', image:'https://marvelcdb.com/bundles/cards/27176a.png'}
+    ];
+    shuffle(state.villain.deck);
+    state.villain.discard = [];
+    state.villain.stages = [{hp:14,attack:2,scheme:1},{hp:16,attack:3,scheme:2}];
+    state.villain.stageIndex = 0;
+    state.villain.hp = state.villain.stages[0].hp;
+    state.villain.hpMax = state.villain.stages[0].hp;
+    state.villain.attack = state.villain.stages[0].attack;
+    state.villain.scheme = state.villain.stages[0].scheme;
+    updateVillainUi();
+    log('Using fallback small villain deck (3 cards).');
+    return state.villain.deck.length;
+  }
+}
+
+// Helper: fetch a MarvelCDB decklist by ID and expand to card entries (minimal)
+async function importHeroDeckById(id){
+  try{
+    const url = `https://marvelcdb.com/api/public/decklist/${encodeURIComponent(id)}.json`;
+    log('Fetching hero decklist ' + id + '...');
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('Decklist fetch failed: ' + res.status);
+    const json = await res.json();
+    // decklist slot object may be in json.cards or json.slots
+    // Try to extract codes from slots map if present
+    const codes = [];
+    if(json.cards && Array.isArray(json.cards) && json.cards.length>0){
+      // array of card objects or codes
+      json.cards.forEach(c=>{
+        if(typeof c === 'string') codes.push(c);
+        else if(c.code) {
+          const qty = c.quantity || c.qty || c.count || 1;
+          for(let i=0;i<qty;i++) codes.push(c.code);
+        } else if(c.card_id){ const qty = c.quantity||1; for(let i=0;i<qty;i++) codes.push(c.card_id); }
+      });
+    } else if(json.slots && typeof json.slots === 'object'){
+      for(const code in json.slots){
+        const qty = json.slots[code] || 1;
+        for(let i=0;i<qty;i++) codes.push(code);
+      }
+    } else {
+      // fallback: parse textual decklists (rare)
+      log('Decklist format unexpected; using fallback sample hero deck.');
+      throw new Error('Decklist format not recognized.');
+    }
+    // Fetch card JSON for each unique code (limit to reasonable amount)
+    const unique = Array.from(new Set(codes)).slice(0,60);
+    const deck = [];
+    for(const code of unique){
+      try{
+        const card = await fetchCardJson(code);
+        deck.push({code, title: card.real_name || card.name || code, text: card.text||card.flavor||'', image: card.imagesrc || card.image_url || (card.pack_code?`https://marvelcdb.com/bundles/cards/${card.code}.png`:null)});
+      }catch(e){
+        log('One hero card fetch failed: ' + code);
+        deck.push({code, title:code, text:'', image:null});
+      }
+    }
+    state.hero.name = json.title || json.name || ('Imported '+id);
+    state.hero.deck = deck.slice(); // using unique codes as simplified deck
+    state.hero.hand = [];
+    state.hero.handSize = json.hand_size || state.hero.handSize || 6;
+    updateHeroUi();
+    log(`Imported hero deck "${state.hero.name}" (${state.hero.deck.length} unique cards).`);
+  }catch(err){
+    log('Hero import failed: ' + err.message);
+    // fallback: use chosen prebuilt hero if any
+    const preset = heroPreset.value;
+    if(preset && PREBUILT_HEROES[preset]){ loadPrebuiltHero(preset); }
+    else log('No fallback preset selected.');
+  }
+}
+
+// --- UI update functions ---
+function updateVillainUi(){
+  const st = state.villain.stages && state.villain.stages.length ? state.villain.stages[state.villain.stageIndex] : null;
+  villainInfoEl.innerText = state.villain.name + (st ? ` — Stage ${state.villain.stageIndex+1}/${state.villain.stages.length}  HP ${state.villain.hp}/${state.villain.hpMax}  Attack ${state.villain.attack}` : '');
+  villainDeckCountEl.innerText = (state.villain.deck ? state.villain.deck.length : 0);
+  // show top of discard? show nothing by default
+  villainCardEl.innerHTML = '';
+}
+
+function updateHeroUi(){
+  heroHandEl.innerHTML = '';
+  state.hero.hand.forEach(c=>{
+    const div = document.createElement('div'); div.className='card-thumb';
+    const title = document.createElement('div'); title.style.fontWeight='700'; title.style.fontSize='12px'; title.style.marginBottom='6px'; title.innerText = c.title;
+    div.appendChild(title);
+    if(c.image){
+      const img = document.createElement('img'); img.src = c.image; img.alt = c.title;
+      img.onerror = ()=>{ img.style.display='none'; };
+      div.appendChild(img);
+    }
+    const txt = document.createElement('div'); txt.className='muted small'; txt.style.marginTop='6px'; txt.innerText = c.text || '';
+    div.appendChild(txt);
+    heroHandEl.appendChild(div);
+  });
+  heroDeckLeftEl.innerText = state.hero.deck.length;
+}
+
+function updateMinions(){
+  minionCountEl.innerText = state.minions;
+}
+function updateMainScheme(){
+  mainSchemeEl.innerText = state.mainScheme;
+}
+function renderSideSchemes(){
+  sideSchemesEl.innerHTML = '';
+  state.sideSchemes.forEach(s=>{
+    const d = document.createElement('div'); d.className='side-scheme';
+    const minus = document.createElement('button'); minus.innerText='-'; minus.onclick=()=>{ s.threat=Math.max(0,s.threat-1); renderSideSchemes(); };
+    const span = document.createElement('span'); span.innerText = `Threat ${s.threat}`;
+    const plus = document.createElement('button'); plus.innerText='+'; plus.onclick=()=>{ s.threat++; renderSideSchemes(); };
+    const del = document.createElement('button'); del.innerText='X'; del.onclick=()=>{ state.sideSchemes = state.sideSchemes.filter(x=>x.id!==s.id); renderSideSchemes(); };
+    d.appendChild(minus); d.appendChild(span); d.appendChild(plus); d.appendChild(del);
+    sideSchemesEl.appendChild(d);
+  });
+}
+
+// --- Gameplay actions ---
+function shuffle(array){ for(let i=array.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [array[i],array[j]]=[array[j],array[i]]; } }
+
+function drawVillainEncounter(){
+  if(!state.villain.deck || state.villain.deck.length===0){
+    if(state.villain.discard && state.villain.discard.length>0){
+      state.villain.deck = state.villain.discard.splice(0);
+      shuffle(state.villain.deck);
+      log('Encounter deck reshuffled from discard.');
+    } else {
+      log('Encounter deck empty.');
+      return null;
+    }
+  }
+  const c = state.villain.deck.shift();
+  state.villain.discard.push(c);
+  updateVillainUi();
+  return c;
+}
+
+// Display an encounter card
+function revealEncounterCard(card){
+  villainCardEl.innerHTML = '';
+  const title = document.createElement('div'); title.innerHTML = `<strong>${card.title}</strong>`;
+  const text = document.createElement('div'); text.className='muted small'; text.style.marginTop='6px'; text.innerText = card.text || '';
+  villainCardEl.appendChild(title); villainCardEl.appendChild(text);
+  if(card.image){
+    const img = document.createElement('img'); img.src = card.image; img.className='cardimg'; img.style.marginTop='8px';
+    img.onerror = ()=>{ img.style.display='none'; };
+    villainCardEl.appendChild(img);
+  }
+}
+
+// Ready & Draw: auto redraw (discard existing hand, draw up to hand size)
+readyDrawBtn.addEventListener('click', ()=>{
+  // Discard current hand (we don't track discard pile for hero in this simplified version)
+  state.hero.hand = [];
+  // Draw up to hand size
+  while(state.hero.hand.length < (state.hero.handSize || 6) && state.hero.deck.length>0){
+    state.hero.hand.push(state.hero.deck.shift());
+  }
+  updateHeroUi();
+  log(`Ready & Draw: hand ${state.hero.hand.length}, deck ${state.hero.deck.length}`);
+});
+
+// Villain Phase: scheme + reveal encounter card (and show)
+villainPhaseBtn.addEventListener('click', async ()=>{
+  log('Villain Phase: main scheme +1');
+  state.mainScheme += 1; updateMainScheme();
+  const c = drawVillainEncounter();
+  if(c){
+    revealEncounterCard(c);
+    log(`Revealed encounter: ${c.title}`);
+  }
+});
+
+// Add side scheme
+addSideBtn.addEventListener('click', ()=>{
+  const id = Date.now().toString(36);
+  state.sideSchemes.push({id, threat:0});
+  renderSideSchemes();
+  log('Side scheme added');
+});
+
+// minion and scheme buttons
+minionInc.addEventListener('click', ()=>{ state.minions++; updateMinions(); });
+minionDec.addEventListener('click', ()=>{ state.minions = Math.max(0, state.minions-1); updateMinions(); });
+schemeInc.addEventListener('click', ()=>{ state.mainScheme++; updateMainScheme(); });
+schemeDec.addEventListener('click', ()=>{ state.mainScheme = Math.max(0, state.mainScheme-1); updateMainScheme(); });
+
+// Build villain button (main entry)
+buildVillainBtn.addEventListener('click', async ()=>{
+  const modular = document.getElementById('modular').value;
+  const diff = document.getElementById('difficulty').value;
+  const includeStandard = true;
+  const includeMod = (modular === 'bomb_scare');
+  log('Building Rhino deck (this may take a few seconds)...');
+  const count = await buildRhinoDeck(includeStandard, includeMod, diff);
+  log(`Villain deck ready (${count} cards).`);
+});
+
+// Hero preset quick loads
+heroPreset.addEventListener('change', (e)=>{
+  const key = e.target.value;
+  if(key && PREBUILT_HEROES[key]){
+    loadPrebuiltHero(key);
+  }
+});
+
+function loadPrebuiltHero(key){
+  const h = PREBUILT_HEROES[key];
+  state.hero.name = h.name;
+  state.hero.deck = h.deck.slice();
+  state.hero.hand = [];
+  state.hero.handSize = h.handSize || 6;
+  shuffle(state.hero.deck);
+  updateHeroUi(); updateHeroDeckLeft();
+  log(`Loaded prebuilt hero: ${h.name}`);
+}
+
+function updateHeroDeckLeft(){ heroDeckLeftEl.innerText = state.hero.deck.length; }
+
+// Import hero by MarvelCDB decklist ID
+importHeroBtn.addEventListener('click', async ()=>{
+  const id = importHeroId.value.trim();
+  if(!id){ log('Enter a decklist ID to import.'); return; }
+  await importHeroDeckById(id);
+  updateHeroDeckLeft();
+});
+
+// Helper: fetch card JSON used by import
+async function fetchCardJson(code){
+  const url = `https://marvelcdb.com/api/public/card/${encodeURIComponent(code)}.json`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('Card fetch failed: ' + res.status);
+  return await res.json();
+}
+
+// shuffle utility
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+
+// --- init ---
+updateVillainUi();
+updateHeroUi();
+updateMinions();
+updateMainScheme();
+renderSideSchemes();
+log('MC Solo Rhino helper ready. Build the villain deck to fetch full encounter sets from MarvelCDB.');
+</script>
+</body>
+</html>
